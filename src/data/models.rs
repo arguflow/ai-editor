@@ -90,3 +90,24 @@ impl From<User> for SlimUser {
         SlimUser { email: user.email }
     }
 }
+
+#[derive(Debug, Serialize, Deserialize, Queryable, Insertable, Associations)]
+#[diesel(table_name = otp_tokens)]
+#[diesel(belongs_to(User, foreign_key = email))]
+pub struct OTPToken {
+    pub id: uuid::Uuid,
+    pub token: String,
+    pub email: String,
+    pub created_at: chrono::NaiveDateTime,
+    pub updated_at: chrono::NaiveDateTime,
+}
+
+diesel::table! {
+    otp_tokens (id) {
+        id -> Uuid,
+        token -> Varchar,
+        email -> Varchar,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+    }
+}

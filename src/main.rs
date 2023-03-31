@@ -7,8 +7,8 @@ use actix_session::{config::PersistentSession, storage::RedisSessionStore, Sessi
 use actix_web::{cookie::Key, middleware, web, App, HttpServer};
 use diesel::{prelude::*, r2d2};
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
-use time;
 use std;
+use time;
 
 mod data;
 mod errors;
@@ -71,7 +71,9 @@ async fn main() -> std::io::Result<()> {
                     redis_store.clone(),
                     Key::from(handlers::register_handler::SECRET_KEY.as_bytes()),
                 )
-                .session_lifecycle(PersistentSession::default().session_ttl(time::Duration::days(1)))
+                .session_lifecycle(
+                    PersistentSession::default().session_ttl(time::Duration::days(1)),
+                )
                 .cookie_name("ai-editor".to_owned())
                 .cookie_secure(false)
                 .cookie_domain(Some(domain.clone()))
@@ -98,12 +100,20 @@ async fn main() -> std::io::Result<()> {
                             .route(web::get().to(handlers::auth_handler::get_me)),
                     )
                     .service(
-                        web::resource("/password/{email}")
-                            .route(web::get().to(handlers::password_reset_handler::send_password_reset_email_handler))
+                        web::resource("/totp")
+                            .route(web::post().to(handlers::totp_handler::post_totp))
+                            .route(web::get().to(handlers::totp_handler::get_totp)),
                     )
+                    .service(web::resource("/password/{email}").route(
+                        web::get().to(
+                            handlers::password_reset_handler::send_password_reset_email_handler,
+                        ),
+                    ))
                     .service(
-                        web::resource("/password")
-                            .route(web::post().to(handlers::password_reset_handler::reset_user_password_handler)),
+                        web::resource("/password").route(
+                            web::post()
+                                .to(handlers::password_reset_handler::reset_user_password_handler),
+                        ),
                     ),
             )
     })
