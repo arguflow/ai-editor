@@ -165,6 +165,7 @@ pub async fn websocket_index(req: HttpRequest, stream: web::Payload, pool: web::
         topic_id: None,
         last_pong: Utc::now(),
         pool: pool.clone(),
+        spawn_handle: None,
     }, &req, stream);
     println!("{:?}", resp);
     resp

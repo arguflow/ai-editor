@@ -2,11 +2,13 @@ use actix::StreamHandler;
 use actix_web::web;
 use actix_web_actors::ws;
 use actix::prelude::*;
+use openai_dive::v1::{api::Client, resources::chat_completion::{ChatCompletionParameters, ChatMessage}};
 use serde::{Deserialize, Serialize};
+use tokio_stream::StreamExt;
 use crate::{
     data::models::{self, Pool},
     operators::message_operator::{
-        get_messages_for_topic_query, user_owns_topic_query
+        get_messages_for_topic_query, user_owns_topic_query, ChatCompletionDTO
     },
 };
 
@@ -30,6 +32,7 @@ enum Command {
 #[derive(Serialize, Deserialize, Debug)]
 enum Response {
     Messages(Vec<models::Message>),
+    ChatMessage(String),
     Error(String),
 }
 
@@ -39,6 +42,7 @@ pub struct CompletionWebSeocket {
     pub topic_id: Option<uuid::Uuid>,
     pub last_pong: chrono::DateTime<chrono::Utc>,
     pub pool: web::Data<Pool>,
+    pub spawn_handle: Option<actix::SpawnHandle>,
 }
 
 impl From<ws::Message> for Command {
@@ -75,6 +79,66 @@ impl From<ws::Message> for Command {
     }
 }
 
+impl CompletionWebSeocket {
+
+    async fn stuff(previous_messages: Vec<models::Message>, ctx: &mut ws::WebsocketContext<Self>) {
+
+        let open_ai_messages: Vec<ChatMessage> = previous_messages
+            .iter()
+            .map(|message| ChatMessage::from(message.clone()))
+            .collect();
+
+        let open_ai_api_key = std::env::var("OPEN_AI_API_KEY").expect("OPEN_AI_API_KEY must be set");
+        let client = Client::new(open_ai_api_key);
+
+        let parameters = ChatCompletionParameters {
+            model: "gpt-3.5-turbo".into(),
+            messages: open_ai_messages,
+            temperature: None,
+            top_p: None,
+            n: None,
+            stop: None,
+            max_tokens: None,
+            presence_penalty: None,
+            frequency_penalty: None,
+            logit_bias: None,
+        };
+
+        let mut response_content = String::new();
+        let mut completion_tokens = 0;
+        let mut stream = client.chat().create_stream(parameters).await.unwrap();
+
+        while let Some(response) = stream.next().await {
+            let chat_content = response.unwrap().choices[0].delta.content.clone().unwrap();
+            completion_tokens += 1;
+
+            // tx.send(Ok(chat_content.into()))
+            //     .await
+            //     .map_err(|_e| DefaultError {
+            //         message: "Error sending message to websocket".into(),
+            //     })?;
+            ctx.text(serde_json::to_string(&Response::ChatMessage(chat_content.clone())).unwrap());
+            response_content.push_str(chat_content.clone().as_str());
+        }
+
+        let completion_message = models::Message::from_details(
+            response_content,
+            previous_messages[0].topic_id,
+            (previous_messages.len() + 1).try_into().unwrap(),
+            "assistant".into(),
+            Some(0),
+            Some(completion_tokens),
+        );
+
+        let completion_message = ChatCompletionDTO {
+            completion_message,
+            completion_tokens,
+        };
+
+    }
+
+}
+
 
 impl Actor for CompletionWebSeocket {
     type Context = ws::WebsocketContext<Self>;
@@ -102,9 +166,13 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for CompletionWebSeoc
                 self.last_pong = chrono::Utc::now();
                 ctx.pong("Pong".as_bytes());
             }
-            Command::Prompt(_) => {
+            Command::Prompt(messages) => {
                 log::info!("Prompt received");
-                todo!();
+                let fut = async move {
+                    CompletionWebSeocket::stuff(messages, ctx).await;
+                };
+                let fut = actix::fut::wrap_future::<_, Self>(fut);
+                self.spawn_handle = Some(ctx.spawn(fut));
             }
             Command::RegenerateMessage => {
                 log::info!("Regenerate message received");
