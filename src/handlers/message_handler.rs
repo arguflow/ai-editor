@@ -4,19 +4,22 @@ use crate::{
     errors::ServiceError,
     operators::message_operator::{
         create_topic_message_query, delete_message_query, get_messages_for_topic_query,
-        get_topic_messages,
+        get_openai_completion, get_topic_messages,
     },
 };
+use actix::prelude::Arbiter;
 use actix_web::{
     web::{self, Bytes},
-    HttpRequest, HttpResponse,
+    HttpRequest, HttpResponse, ResponseError,
 };
+use crossbeam_channel::bounded;
 use openai_dive::v1::{
     api::Client,
     resources::chat_completion::{ChatCompletionParameters, ChatMessage},
 };
 use serde::{Deserialize, Serialize};
-use tokio_stream::StreamExt;
+use tokio::sync::mpsc;
+use tokio_stream::{wrappers::ReceiverStream, StreamExt};
 
 use super::auth_handler::LoggedUser;
 
@@ -82,7 +85,7 @@ pub async fn create_message_completion_handler(
         }
     };
 
-    stream_response(req, previous_messages, fourth_pool, stream).await
+    stream_completion(previous_messages, fourth_pool).await
 }
 
 // get_all_topic_messages_handler
@@ -123,11 +126,9 @@ pub struct RegenerateMessageData {
 }
 
 pub async fn regenerate_message_handler(
-    req: HttpRequest,
     data: web::Json<RegenerateMessageData>,
     user: LoggedUser,
     pool: web::Data<Pool>,
-    stream: web::Payload,
 ) -> Result<HttpResponse, actix_web::Error> {
     // TODO: check if the user owns the message
     // Get message
@@ -148,46 +149,21 @@ pub async fn regenerate_message_handler(
         }
     };
 
-    stream_response(req, previous_messages, fourth_pool, stream).await
+    stream_completion(previous_messages, fourth_pool).await
 }
 
-pub async fn stream_response(
-    req: HttpRequest,
+pub async fn stream_completion(
     messages: Vec<models::Message>,
     pool: web::Data<Pool>,
-    stream: web::Payload,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let open_ai_messages: Vec<ChatMessage> = messages
-        .iter()
-        .map(|message| ChatMessage::from(message.clone()))
-        .collect();
+    let (tx, rx) = bounded::<StreamItem>(10000);
 
-    let open_ai_api_key = std::env::var("OPENAI_API_KEY").expect("OPEN_AI_API_KEY must be set");
-    let client = Client::new(open_ai_api_key);
+    Arbiter::new().spawn(async move {
+        tx;
+    });
 
-    let parameters = ChatCompletionParameters {
-        model: "gpt-3.5-turbo".into(),
-        messages: open_ai_messages,
-        temperature: None,
-        top_p: None,
-        n: None,
-        stop: None,
-        max_tokens: None,
-        presence_penalty: None,
-        frequency_penalty: None,
-        logit_bias: None,
-    };
+    // stream from rx
+    let receiver_stream = ReceiverStream::new(rx);
 
-    let stream = client.chat().create_stream(parameters).await.unwrap();
-
-    Ok(
-        HttpResponse::Ok().streaming(stream.map(|response| -> Result<Bytes, actix_web::Error> {
-            if let Ok(response) = response {
-                let chat_content = response.choices[0].delta.content.clone();
-                return Ok(Bytes::from(chat_content.unwrap_or("".to_string())));
-            }
-            log::error!("Something bad");
-            Err(ServiceError::InternalServerError.into())
-        })),
-    )
+    Ok(HttpResponse::Ok().streaming(receiver_stream))
 }

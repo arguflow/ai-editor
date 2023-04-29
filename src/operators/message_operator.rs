@@ -138,7 +138,6 @@ pub fn get_messages_for_topic_query(
         })
 }
 
-#[allow(dead_code)]
 pub async fn get_openai_completion(
     previous_messages: Vec<Message>,
     tx: mpsc::Sender<StreamItem>,
@@ -177,7 +176,7 @@ pub async fn get_openai_completion(
                 tx.send(Ok(chat_content.into()))
                     .await
                     .map_err(|_e| DefaultError {
-                        message: "Error sending message to websocket".into(),
+                        message: "Error sending message to receiver".into(),
                     })?;
                 response_content.push_str(multi_use_chat_content.clone().as_str());
             }

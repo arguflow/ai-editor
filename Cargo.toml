@@ -27,10 +27,11 @@ openssl = { version = "0.10" }
 sendgrid = { version = "0.18" }
 diesel_migrations = { version = "2.0" }
 regex = "1.7.3"
-openai_dive = { version = "0.2.3", features = ["stream"] }
-tokio = "1.27.0"
+openai_dive = { version = "0.2.4", features = ["stream"] }
+tokio = {version = "1.27.0", features = ["full"]}
 tokio-stream = "0.1.12"
 futures-util = "0.3.28"
 async-stream = "0.3.5"
 actix = "0.13.0"
 futures = "0.3.28"
+crossbeam-channel = "0.5.8"

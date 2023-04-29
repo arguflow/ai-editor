@@ -352,6 +352,7 @@ dependencies = [
  "actix-web",
  "async-stream",
  "chrono",
+ "crossbeam-channel",
  "derive_more",
  "diesel",
  "diesel_migrations",
@@ -1538,9 +1539,9 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
 name = "openai_dive"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c72636a7ed354c2c00ffa52e72424568e7649017aaadcc81e343d979bc8973a7"
+checksum = "a7e3f620b282d7da941e744ebe765117be78c89c4d7fd16f92208e5111f22d57"
 dependencies = [
  "futures",
  "reqwest",
@@ -2214,7 +2215,19 @@ dependencies = [
  "pin-project-lite",
  "signal-hook-registry",
  "socket2",
+ "tokio-macros",
  "windows-sys 0.45.0",
+]
+
+[[package]]
+name = "tokio-macros"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "61a573bdc87985e9d6ddeed1b3d864e8a302c847e40d647746df2f1de209d1ce"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.10",
 ]
 
 [[package]]
