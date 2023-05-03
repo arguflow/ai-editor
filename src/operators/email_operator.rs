@@ -7,8 +7,8 @@ use sendgrid::v3::{Content, Email, Message, Personalization, Sender};
 pub fn send_invitation(invitation: &Invitation) -> Result<(), DefaultError> {
     let sg_email_content = format!(
         "Please click on the link below to complete registration. <br/>
-         <a href=\"http://localhost:3000/auth/register/{}?email={}\">
-         http://localhost:3030/register</a> <br>
+         <a href=\"htts://arguflow.com/auth/register/{}?email={}\">
+         https://arguflow.com/register</a> <br>
          your Invitation expires at <strong>{}</strong>",
         invitation.id,
         invitation.email,
@@ -30,8 +30,8 @@ pub fn send_invitation(invitation: &Invitation) -> Result<(), DefaultError> {
 pub fn send_password_reset(password_reset: &PasswordReset) -> Result<(), DefaultError> {
     let sg_email_content = format!(
         "Please click on the link below to reset your password. <br/>
-         <a href=\"http://localhost:3000/auth/password/{}?email={}\">
-         http://localhost:3000/auth/password</a> <br>
+         <a href=\"htts://arguflow.com/auth/password/{}?email={}\">
+         htts://arguflow.com/auth/password</a> <br>
          your password reset link expires at <strong>{}</strong>",
         password_reset.id,
         password_reset.email,
