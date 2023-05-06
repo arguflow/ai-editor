@@ -8,7 +8,6 @@ diesel::table! {
         created_at -> Timestamp,
         updated_at -> Timestamp,
         referral_tokens -> Nullable<Text>,
-        stripe_customer_id -> Nullable<Text>,
     }
 }
 
@@ -32,6 +31,16 @@ diesel::table! {
         id -> Uuid,
         email -> Varchar,
         expires_at -> Timestamp,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+    }
+}
+
+diesel::table! {
+    stripe_customers (id) {
+        id -> Uuid,
+        stripe_id -> Text,
+        email -> Varchar,
         created_at -> Timestamp,
         updated_at -> Timestamp,
     }
@@ -66,6 +75,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     invitations,
     messages,
     password_resets,
+    stripe_customers,
     topics,
     users,
 );

@@ -170,6 +170,28 @@ impl Message {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Queryable, Insertable)]
+#[diesel(table_name = stripe_customers)]
+pub struct StripeCustomer {
+    pub id: uuid::Uuid,
+    pub stripe_id: String,
+    pub email: String,
+    pub created_at: chrono::NaiveDateTime,
+    pub updated_at: chrono::NaiveDateTime,
+}
+
+impl StripeCustomer {
+    pub fn from_details<S: Into<String>, T: Into<String>>(stripe_id: S, email: T) -> Self {
+        StripeCustomer {
+            id: uuid::Uuid::new_v4(),
+            stripe_id: stripe_id.into(),
+            email: email.into(),
+            created_at: chrono::Local::now().naive_local(),
+            updated_at: chrono::Local::now().naive_local(),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SlimUser {
     pub id: uuid::Uuid,
