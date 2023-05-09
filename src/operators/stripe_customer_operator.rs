@@ -36,11 +36,14 @@ pub async fn create_stripe_checkout_session_query(
 
     let checkout_session = CheckoutSession::create(&stripe_client, params)
         .await
-        .map_err(|_stripe_error| DefaultError {
-            message: "Error creating checkout session, try again",
+        .map_err(|_stripe_error| {
+            log::error!("Error creating checkout session: {:?}", _stripe_error);
+            DefaultError {
+                message: "Error creating checkout session, try again",
+            }
         })?;
     let checkout_session_url = checkout_session.url.ok_or(DefaultError {
-        message: "Error creating checkout session, try again",
+        message: "Error creating checkout url, try again",
     })?;
 
     Ok(checkout_session_url)
@@ -85,10 +88,8 @@ pub async fn create_stripe_customer_query(
         message: "Error creating new stripe customer, try again",
     })?;
 
-    let new_stripe_customer = StripeCustomer::from_details(
-        new_full_customer.id.to_string(),
-        new_full_customer.email,
-    );
+    let new_stripe_customer =
+        StripeCustomer::from_details(new_full_customer.id.to_string(), new_full_customer.email);
 
     let mut conn = pool.get().unwrap();
 
