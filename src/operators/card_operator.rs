@@ -41,6 +41,7 @@ pub struct ScoredCardDTO {
     id: String,
     content: String,
     score: f32,
+    votes: i64,
     link: Option<String>,
 }
 
@@ -58,7 +59,7 @@ pub async fn search_card_query(
             vector: embedding_vector,
             limit: 25,
             offset: Some((page - 1) * 25),
-            with_payload: Some(vec!["content", "user_id", "link"].into()),
+            with_payload: Some(vec!["content", "user_id", "link", "upvotes", "downvotes"].into()),
             ..Default::default()
         })
         .await
@@ -74,6 +75,17 @@ pub async fn search_card_query(
             };
             let content = point.payload.get("content")?;
             let score = point.score;
+            let upvote_kind = point
+                .payload
+                .get("upvtoes")
+                .map(|v| v.kind.clone())
+                .flatten();
+            let downvote_kind = point
+                .payload
+                .get("downvtoes")
+                .map(|v| v.kind.clone())
+                .flatten();
+
             let link = point.payload.get("link").and_then(|link| {
                 if let Some(Kind::StringValue(s)) = &link.kind {
                     Some(s.clone())
@@ -82,11 +94,24 @@ pub async fn search_card_query(
                 }
             });
 
-            match &content.kind {
-                Some(Kind::StringValue(content)) => Some(ScoredCardDTO {
+            match (&content.kind, &upvote_kind, &downvote_kind) {
+                (
+                    Some(Kind::StringValue(content)),
+                    Some(Kind::IntegerValue(upvotes)),
+                    Some(Kind::IntegerValue(downvotes)),
+                ) => Some(ScoredCardDTO {
                     id,
                     content: content.clone(),
                     score,
+                    votes: upvotes - downvotes,
+                    link,
+                }),
+
+                (Some(Kind::StringValue(content)), None, None) => Some(ScoredCardDTO {
+                    id,
+                    content: content.clone(),
+                    score,
+                    votes: 0,
                     link,
                 }),
                 _ => None,

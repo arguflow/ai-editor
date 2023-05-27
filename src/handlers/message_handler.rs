@@ -140,7 +140,8 @@ pub async fn edit_message_handler(
         }
     };
 
-    let _ = web::block(move || delete_message_query(&user.id, message_id, topic_id, &second_pool)).await?;
+    let _ = web::block(move || delete_message_query(&user.id, message_id, topic_id, &second_pool))
+        .await?;
 
     return create_message_completion_handler(
         actix_web::web::Json(CreateMessageData {

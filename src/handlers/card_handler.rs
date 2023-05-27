@@ -34,6 +34,8 @@ pub async fn create_card(
             "user_id": id_str,
             "link": card.link,
             "created_at": chrono::Utc::now().to_rfc3339(),
+            "upvoes": 0,
+            "downvotes": 0,
         }
     )
     .try_into()
