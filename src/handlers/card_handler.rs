@@ -1,5 +1,7 @@
 use actix_web::{web, HttpResponse};
+use qdrant_client::prelude::Payload;
 use qdrant_client::qdrant::PointStruct;
+use qdrant_client::qdrant::value::Kind;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -79,4 +81,59 @@ pub async fn get_card_by_id(
         Some(card) => Ok(HttpResponse::Ok().json(card)),
         None => Ok(HttpResponse::BadRequest().finish()),
     }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct VoteCardData {
+    card_id: uuid::Uuid,
+    vote: bool,
+}
+
+pub async fn vote_card(
+    data: web::Json<VoteCardData>,
+) -> Result<HttpResponse, actix_web::Error> {
+    let qdrant = get_qdrant_connection()
+        .await
+        .map_err(|err| actix_web::error::ErrorBadRequest(err.message))?;
+
+    let card = match get_point_by_id_query(data.card_id).await? {
+        Some(card) => card,
+        None => return Ok(HttpResponse::NotFound().finish()),
+    };
+
+    let upvote_kind = card.payload
+        .get("upvotes")
+        .map(|v| v.kind.clone())
+        .flatten();
+
+    let downvote_kind = card.payload
+        .get("downvotes")
+        .map(|v| v.kind.clone())
+        .flatten();
+
+    let (upvotes, downvotes) = match (upvote_kind, downvote_kind) {
+        (Some(Kind::IntegerValue(upvotes)), Some(Kind::IntegerValue(downvotes))) => (upvotes, downvotes),
+        (_, _) => (0, 0)
+    };
+
+    let mut payload = card.payload.clone();
+
+    if data.vote {
+        payload.insert("upvotes".to_string(), (upvotes + 1).into());
+    } else {
+        payload.insert("downvotes".to_string(), (downvotes + 1).into());
+    }
+
+    let point = PointStruct::new(
+        card.id.unwrap(),
+        card.vectors.unwrap(),
+        Payload::new_from_hashmap(payload)
+    );
+
+    qdrant
+        .upsert_points_blocking("debate_cards".to_string(), vec![point], None)
+        .await
+        .map_err(actix_web::error::ErrorBadRequest)?;
+
+    Ok(HttpResponse::NoContent().finish())
 }
