@@ -269,13 +269,27 @@ pub fn search_full_text_card_query(
             card_metadata_columns::oc_file_path,
             card_metadata_columns::card_html,
             sql::<Nullable<Float>>(
-                format!("strict_word_similarity('{}', content) as sml", user_query).as_str(),
+                format!(
+                    "strict_word_similarity('{}', content) as sml",
+                    user_query
+                        .split_whitespace()
+                        .collect::<Vec<&str>>()
+                        .join(" & ")
+                )
+                .as_str(),
             ),
         ))
         .into_boxed();
 
     query = query.filter(sql::<Bool>(
-        format!("'{}' <<% content", user_query).as_str(),
+        format!(
+            "'{}' <<% content",
+            user_query
+                .split_whitespace()
+                .collect::<Vec<&str>>()
+                .join(" & ")
+        )
+        .as_str(),
     ));
 
     let filter_oc_file_path = filter_oc_file_path.unwrap_or([].to_vec());
