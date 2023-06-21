@@ -1,5 +1,5 @@
 use crate::data::models::{
-    CardMetadata, CardMetadataWithVotes, CardMetadataWithVotesWithoutScore, Pool, UserDTO,
+    CardMetadata, CardMetadataWithVotes, CardMetadataWithVotesWithoutScore, Pool,
 };
 use crate::errors::ServiceError;
 use crate::operators::card_operator::{
@@ -84,16 +84,15 @@ pub async fn create_card(
         .await?
         .map_err(|err| ServiceError::BadRequest(err.message.into()))?;
     } else {
-        let payload: qdrant_client::prelude::Payload;
         let qdrant = get_qdrant_connection()
             .await
             .map_err(|err| ServiceError::BadRequest(err.message.into()))?;
         //if private is true, set payload to private
-        if private {
-            payload = json!({"private": true}).try_into().unwrap();
+        let payload: qdrant_client::prelude::Payload = if private {
+            json!({"private": true}).try_into().unwrap()
         } else {
-            payload = json!({}).try_into().unwrap();
-        }
+            json!({}).try_into().unwrap()
+        };
 
         let point_id = uuid::Uuid::new_v4();
         let point = PointStruct::new(point_id.clone().to_string(), embedding_vector, payload);
@@ -149,7 +148,6 @@ pub async fn delete_card(
         points_selector_one_of: Some(PointsSelectorOneOf::Points(PointsIdsList {
             ids: vec![card_metadata
                 .qdrant_point_id
-                .clone()
                 .unwrap_or(uuid::Uuid::nil())
                 .to_string()
                 .into()],
@@ -202,8 +200,8 @@ pub async fn update_card(
         let soup_text_ref = soup.text();
         let Changeset { diffs, .. } = Changeset::new(&card_metadata.content, &soup_text_ref, " ");
         let mut ret: String = Default::default();
-        for i in 0..diffs.len() {
-            match diffs[i] {
+        for item in &diffs {
+            match item {
                 Difference::Same(ref x) => {
                     ret += format!(" {}", x).as_str();
                 }
@@ -233,7 +231,7 @@ pub async fn update_card(
     {
         return Err(ServiceError::BadRequest("Cannot make a duplicate card public".into()).into());
     }
-    let private = card.private.unwrap_or_else(|| card_metadata.private);
+    let private = card.private.unwrap_or(card_metadata.private);
 
     web::block(move || {
         update_card_metadata_query(

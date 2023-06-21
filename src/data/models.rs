@@ -263,11 +263,11 @@ impl CardMetadata {
             card_html: card_html.clone(),
             link: link.clone(),
             author_id: author_id.into(),
-            qdrant_point_id: qdrant_point_id.into(),
+            qdrant_point_id: qdrant_point_id,
             created_at: chrono::Local::now().naive_local(),
             updated_at: chrono::Local::now().naive_local(),
             oc_file_path: oc_file_path.clone(),
-            private: private.clone(),
+            private: private,
         }
     }
 }
@@ -289,11 +289,11 @@ impl CardMetadata {
             card_html: card_html.clone(),
             link: link.clone(),
             author_id: author_id.into(),
-            qdrant_point_id: qdrant_point_id.into(),
+            qdrant_point_id: qdrant_point_id,
             created_at: chrono::Local::now().naive_local(),
             updated_at: chrono::Local::now().naive_local(),
             oc_file_path: oc_file_path.clone(),
-            private: private.clone(),
+            private: private,
         }
     }
 }

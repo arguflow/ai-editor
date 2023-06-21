@@ -442,7 +442,7 @@ pub fn get_metadata_and_votes_from_id_query(
             message: "Failed to load metadata",
         })?;
     let converted_card: FullTextSearchResult =
-        <CardMetadata as Into<FullTextSearchResult>>::into(card_metadata.clone());
+        <CardMetadata as Into<FullTextSearchResult>>::into(card_metadata);
 
     let card_metadata_with_upvotes = get_metadata(vec![converted_card], current_user_id, conn)
         .map_err(|_| DefaultError {
