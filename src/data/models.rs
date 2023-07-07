@@ -10,7 +10,7 @@ use super::schema::*;
 // type alias to use in multiple places
 pub type Pool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
-#[derive(Debug, Serialize, Deserialize, Queryable, Insertable, ValidGrouping)]
+#[derive(Debug, Serialize, Deserialize, Queryable, Selectable, Insertable, ValidGrouping)]
 #[diesel(table_name = users)]
 pub struct User {
     pub id: uuid::Uuid,
@@ -38,7 +38,7 @@ impl User {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Queryable, Insertable, ValidGrouping)]
+#[derive(Debug, Serialize, Deserialize, Queryable, Selectable, Insertable, ValidGrouping)]
 #[diesel(table_name = invitations)]
 pub struct Invitation {
     pub id: uuid::Uuid,
@@ -66,7 +66,7 @@ where
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Queryable, Insertable, ValidGrouping)]
+#[derive(Debug, Serialize, Deserialize, Queryable, Selectable, Insertable, ValidGrouping)]
 #[diesel(table_name = password_resets)]
 pub struct PasswordReset {
     pub id: uuid::Uuid,
@@ -92,7 +92,7 @@ where
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Queryable, Insertable, ValidGrouping)]
+#[derive(Debug, Serialize, Deserialize, Queryable, Selectable, Insertable, ValidGrouping)]
 #[diesel(table_name = topics)]
 pub struct Topic {
     pub id: uuid::Uuid,
@@ -124,7 +124,7 @@ impl Topic {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Queryable, Insertable, Clone)]
+#[derive(Debug, Serialize, Deserialize, Queryable, Selectable, Insertable, Clone)]
 #[diesel(table_name = messages)]
 pub struct Message {
     pub id: uuid::Uuid,
@@ -179,7 +179,7 @@ impl Message {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Queryable, Insertable, ValidGrouping)]
+#[derive(Debug, Serialize, Deserialize, Queryable, Selectable, Insertable, ValidGrouping)]
 #[diesel(table_name = stripe_customers)]
 pub struct StripeCustomer {
     pub id: uuid::Uuid,
@@ -201,7 +201,7 @@ impl StripeCustomer {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Queryable, Insertable, ValidGrouping)]
+#[derive(Debug, Serialize, Deserialize, Queryable, Selectable, Insertable, ValidGrouping)]
 #[diesel(table_name = user_plans)]
 pub struct UserPlan {
     pub id: uuid::Uuid,
@@ -246,7 +246,7 @@ pub struct CardMetadataWithCount {
     pub count: i64,
 }
 
-#[derive(Debug, Serialize, Deserialize, Queryable, Insertable, Selectable, Clone)]
+#[derive(Debug, Serialize, Deserialize, Queryable, Selectable, Insertable, Clone)]
 #[diesel(table_name = card_metadata)]
 pub struct CardMetadata {
     pub id: uuid::Uuid,
@@ -335,7 +335,7 @@ impl CardCollisions {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Queryable, Insertable, ValidGrouping)]
+#[derive(Debug, Serialize, Deserialize, Queryable, Selectable, Insertable, ValidGrouping)]
 #[diesel(table_name = card_votes)]
 pub struct CardVote {
     pub id: uuid::Uuid,
@@ -449,7 +449,7 @@ impl From<User> for UserDTO {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Selectable, Queryable, Insertable, Clone)]
+#[derive(Debug, Serialize, Deserialize, Queryable, Selectable, Insertable, Clone)]
 #[diesel(table_name = card_collection)]
 pub struct CardCollection {
     pub id: uuid::Uuid,
@@ -492,7 +492,7 @@ pub struct CardCollectionAndFile {
     pub file_id: Option<uuid::Uuid>,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Queryable, Insertable, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, Queryable, Selectable, Insertable, Clone)]
 #[diesel(table_name = card_collection_bookmarks)]
 pub struct CardCollectionBookmark {
     pub id: uuid::Uuid,
@@ -514,7 +514,7 @@ impl CardCollectionBookmark {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Queryable, Insertable, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, Queryable, Selectable, Insertable, Clone)]
 #[diesel(table_name = collections_from_files)]
 pub struct FileCollection {
     pub id: uuid::Uuid,
@@ -644,7 +644,7 @@ impl From<CardMetadataWithVotesAndFiles> for CardMetadataWithVotesWithoutScore {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Selectable, Queryable, Insertable, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, Queryable, Selectable, Insertable, Clone)]
 #[diesel(table_name = files)]
 pub struct File {
     pub id: uuid::Uuid,
@@ -707,7 +707,7 @@ impl From<File> for FileDTO {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Selectable, Queryable, Insertable, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, Queryable, Selectable, Insertable, Clone)]
 #[diesel(table_name = card_files)]
 pub struct CardFile {
     pub id: uuid::Uuid,

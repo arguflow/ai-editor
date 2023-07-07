@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use crate::data::models::{
@@ -11,14 +12,13 @@ use crate::{
     errors::DefaultError,
 };
 use actix_web::web;
+use diesel::deserialize::FromSqlRow;
 use diesel::dsl::sql;
-use diesel::sql_types::Int8;
 use diesel::sql_types::Nullable;
 use diesel::sql_types::Text;
 use diesel::sql_types::{Bool, Double};
-use diesel::{Connection, JoinOnDsl, NullableExpressionMethods,
-    SelectableHelper,
-};
+use diesel::sql_types::{Int8, Untyped};
+use diesel::{Connection, JoinOnDsl, NullableExpressionMethods, SelectableHelper};
 use openai_dive::v1::{api::Client, resources::embedding::EmbeddingParameters};
 use qdrant_client::qdrant::condition::ConditionOneOf::HasId;
 use qdrant_client::{
@@ -69,6 +69,14 @@ pub struct SearchCardQueryResult {
     pub total_card_pages: i64,
 }
 
+#[derive(Serialize, Deserialize, Queryable, QueryableByName)]
+pub struct SearchCardQueryResultRow {
+    #[sql_type = "Nullable<Text>"]
+    pub qdrant_point_id: Option<uuid::Uuid>,
+    #[sql_type = "Nullable<Text>"]
+    pub collision_qdrant_id: Option<uuid::Uuid>,
+}
+
 pub async fn search_card_query(
     embedding_vector: Vec<f32>,
     page: u64,
@@ -78,52 +86,65 @@ pub async fn search_card_query(
 ) -> Result<SearchCardQueryResult, DefaultError> {
     let page = if page == 0 { 1 } else { page };
     let mut conn = pool.lock().unwrap().get().unwrap();
-
-    // SELECT distinct card_metadata.qdrant_point_id, card_collisions.collision_qdrant_id
-    // FROM card_metadata
-    // left outer JOIN card_collisions ON card_metadata.id = card_collisions.card_id
-    // WHERE card_metadata.private = false OR (card_metadata.private = false and card_metadata.qdrant_point_id is null);
-
-    use crate::data::schema::card_metadata::dsl as card_metadata_columns;
-
-    let mut query = card_metadata_columns::card_metadata
-        .select(card_metadata_columns::qdrant_point_id)
-        .filter(card_metadata_columns::private.eq(false))
-        .into_boxed();
     let filter_oc_file_path = filter_oc_file_path.unwrap_or([].to_vec());
     let filter_link_url = filter_link_url.unwrap_or([].to_vec());
 
-    if !filter_oc_file_path.is_empty() {
-        query = query.filter(
-            card_metadata_columns::oc_file_path
-                .like(format!("%{}%", filter_oc_file_path.get(0).unwrap())),
-        );
-    }
+    let mut sql_query = String::from(
+        "SELECT DISTINCT card_metadata.qdrant_point_id, card_collisions.collision_qdrant_id\n",
+    );
+    sql_query.push_str("FROM card_metadata\n");
+    sql_query.push_str(
+        "LEFT OUTER JOIN card_collisions ON card_metadata.id = card_collisions.card_id\n",
+    );
+    sql_query.push_str("WHERE card_metadata.private = false OR (card_metadata.private = false and card_metadata.qdrant_point_id is null)\n");
 
-    for file_path in filter_oc_file_path.iter().skip(1) {
-        query =
-            query.or_filter(card_metadata_columns::oc_file_path.like(format!("%{}%", file_path)));
+    if !filter_oc_file_path.is_empty() {
+        sql_query.push_str("AND (\n");
+        for (index, file_path) in filter_oc_file_path.iter().enumerate() {
+            if index > 0 {
+                sql_query.push_str("OR ");
+            }
+            sql_query.push_str("card_metadata.oc_file_path LIKE CONCAT('%', ");
+            sql_query.push_str(&format!("'{}'", file_path));
+            sql_query.push_str(", '%')\n");
+        }
+        sql_query.push_str(")\n");
     }
 
     if !filter_link_url.is_empty() {
-        query = query.filter(
-            card_metadata_columns::link.like(format!("%{}%", filter_link_url.get(0).unwrap())),
-        );
-    }
-    for link_url in filter_link_url.iter().skip(1) {
-        query = query.or_filter(card_metadata_columns::link.like(format!("%{}%", link_url)));
+        sql_query.push_str("AND (\n");
+        for (index, link_url) in filter_link_url.iter().enumerate() {
+            if index > 0 {
+                sql_query.push_str("OR ");
+            }
+            sql_query.push_str("card_metadata.link LIKE CONCAT('%', ");
+            sql_query.push_str(&format!("'{}'", link_url));
+            sql_query.push_str(", '%')\n");
+        }
+        sql_query.push_str(")\n");
     }
 
-    let filtered_option_ids: Vec<Option<uuid::Uuid>> =
-        query.load(&mut conn).map_err(|_| DefaultError {
-            message: "Failed to load metadata",
+    let filtered_option_ids: Vec<SearchCardQueryResultRow> = diesel::sql_query(sql_query)
+        .load(&mut conn)
+        .map_err(|_err| DefaultError {
+            message: "Failed to load card metadata",
         })?;
 
-    let qdrant = get_qdrant_connection().await?;
+    // coerce filtered_option_ids into a vector of type Vec<(Option<uuid::Uuid>, Option<uuid::Uuid>)> using unsafe
+    let coerced_filtered_option_ids: Vec<(Option<uuid::Uuid>, Option<uuid::Uuid>)> =
+        unsafe { std::mem::transmute(filtered_option_ids) };
 
-    let filtered_point_ids: &Vec<PointId> = &filtered_option_ids
+    let filtered_point_ids: &Vec<PointId> = &coerced_filtered_option_ids
         .iter()
-        .map(|uuid| uuid.unwrap_or(uuid::Uuid::nil()).to_string().into())
+        .map(|uuid| {
+            uuid.0
+                .unwrap_or(uuid.1.unwrap_or(uuid::Uuid::nil()))
+                .to_string()
+        })
+        // remove any duplicate point ids
+        .collect::<HashSet<String>>()
+        .iter()
+        .map(|point_str| (*point_str).into())
         .collect::<Vec<PointId>>();
 
     let mut filter = Filter::default();
@@ -132,6 +153,8 @@ pub async fn search_card_query(
             has_id: (filtered_point_ids).to_vec(),
         })),
     });
+
+    let qdrant = get_qdrant_connection().await?;
 
     let data = qdrant
         .search_points(&SearchPoints {
