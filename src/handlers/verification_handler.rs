@@ -30,6 +30,13 @@ pub async fn get_webpage_score(url_source: &str, content: &str) -> Result<i64, a
     let mut score;
     match fuzzy_script_result {
         Ok(result) => {
+            if result.status.code().unwrap() != 0 {
+                return Err(ServiceError::BadRequest(format!(
+                    "Could not run fuzzy-text-match.py: {:?}",
+                    String::from_utf8(result.stderr).unwrap()
+                ))
+                .into());
+            }
             score = String::from_utf8(result.stdout)
                 .unwrap()
                 .trim_end_matches('\n')
